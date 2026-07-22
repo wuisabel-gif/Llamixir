@@ -6,40 +6,24 @@ defmodule Llamixir.Runtime.Ollama do
   @default_url "http://127.0.0.1:11434"
 
   @impl true
-  def health(config) do
-    case request_tags(config) do
-      {:ok, _body} -> :ready
-      {:error, {:http_status, status}} -> {:error, {:http_status, status}}
-      {:error, reason} when reason in [:econnrefused, :timeout] -> :unavailable
-      {:error, {:failed_connect, _details}} -> :unavailable
-      {:error, reason} -> {:error, reason}
+  def probe(config) do
+    with {:ok, models_body} <- request(config, "/api/tags"),
+         {:ok, models} <- decode_models(models_body, &normalize_model/1),
+         {:ok, running_body} <- request(config, "/api/ps"),
+         {:ok, running_models} <- decode_models(running_body, &normalize_running_model/1) do
+      {:ok, %{models: models, running_models: running_models}}
+    else
+      {:error, reason} -> classify_error(reason)
     end
   end
 
-  @impl true
-  def models(config) do
-    with {:ok, body} <- request_tags(config),
-         {:ok, %{"models" => models}} when is_list(models) <- JSON.decode(body) do
-      {:ok, Enum.map(models, &normalize_model/1)}
+  defp decode_models(body, normalize) do
+    with {:ok, %{"models" => models}} when is_list(models) <- JSON.decode(body) do
+      {:ok, Enum.map(models, normalize)}
     else
       {:ok, _unexpected} -> {:error, :invalid_response}
       {:error, reason} -> {:error, reason}
     end
-  end
-
-  @impl true
-  def running_models(config) do
-    with {:ok, body} <- request(config, "/api/ps"),
-         {:ok, %{"models" => models}} when is_list(models) <- JSON.decode(body) do
-      {:ok, Enum.map(models, &normalize_running_model/1)}
-    else
-      {:ok, _unexpected} -> {:error, :invalid_response}
-      {:error, reason} -> {:error, reason}
-    end
-  end
-
-  defp request_tags(config) do
-    request(config, "/api/tags")
   end
 
   defp request(config, path) do
@@ -53,6 +37,10 @@ defmodule Llamixir.Runtime.Ollama do
       {:error, reason} -> {:error, reason}
     end
   end
+
+  defp classify_error(reason) when reason in [:econnrefused, :timeout], do: :unavailable
+  defp classify_error({:failed_connect, _details}), do: :unavailable
+  defp classify_error(reason), do: {:error, reason}
 
   defp normalize_model(model) do
     %{

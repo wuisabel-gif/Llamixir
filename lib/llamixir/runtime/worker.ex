@@ -2,7 +2,7 @@ defmodule Llamixir.Runtime.Worker do
   @moduledoc """
   Supervised state holder for one AI runtime.
 
-  A worker periodically asks its adapter for health and model inventory. Failed
+  A worker periodically probes its adapter for health and model inventory. Failed
   checks are represented as state instead of crashing the supervision tree.
   """
 
@@ -74,19 +74,21 @@ defmodule Llamixir.Runtime.Worker do
   def handle_info({:refresh, _stale_token}, state), do: {:noreply, state}
 
   defp refresh_state(%{adapter: adapter, config: config} = state) do
-    case adapter.health(config) do
-      :ready -> refresh_inventory(%{state | status: :ready, error: nil})
-      :unavailable -> clear_inventory(%{state | status: :unavailable, error: nil})
-      {:error, reason} -> clear_inventory(%{state | status: :error, error: reason})
-    end
-  end
+    case adapter.probe(config) do
+      {:ok, %{models: models, running_models: running_models}} ->
+        %{
+          state
+          | status: :ready,
+            models: models,
+            running_models: running_models,
+            error: nil
+        }
 
-  defp refresh_inventory(%{adapter: adapter, config: config} = state) do
-    with {:ok, models} <- adapter.models(config),
-         {:ok, running_models} <- adapter.running_models(config) do
-      %{state | models: models, running_models: running_models}
-    else
-      {:error, reason} -> clear_inventory(%{state | status: :error, error: reason})
+      :unavailable ->
+        clear_inventory(%{state | status: :unavailable, error: nil})
+
+      {:error, reason} ->
+        clear_inventory(%{state | status: :error, error: reason})
     end
   end
 

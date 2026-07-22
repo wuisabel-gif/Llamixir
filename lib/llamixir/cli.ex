@@ -182,17 +182,9 @@ defmodule Llamixir.CLI do
 
   defp runtime_specs do
     [
-      {:ollama, Ollama, url: ollama_url(), refresh_interval: 5_000},
-      {:llamacpp, LlamaCpp, url: llama_cpp_url(), refresh_interval: 5_000}
+      {:ollama, Ollama, refresh_interval: 5_000},
+      {:llamacpp, LlamaCpp, refresh_interval: 5_000}
     ]
-  end
-
-  defp ollama_url do
-    System.get_env("LLAMIXIR_OLLAMA_URL", "http://127.0.0.1:11434")
-  end
-
-  defp llama_cpp_url do
-    System.get_env("LLAMIXIR_LLAMA_CPP_URL", "http://127.0.0.1:8080")
   end
 
   defp model_family(%{metadata: %{"family" => family}}), do: family

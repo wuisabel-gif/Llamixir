@@ -5,46 +5,34 @@ defmodule Llamixir.Runtime.WorkerTest do
     @behaviour Llamixir.Runtime.Adapter
 
     @impl true
-    def health(_config), do: :ready
-
-    @impl true
-    def models(_config), do: {:ok, [%{name: "qwen-test", size: 42}]}
-
-    @impl true
-    def running_models(_config), do: {:ok, [%{name: "qwen-test", vram_size: 21}]}
+    def probe(_config) do
+      {:ok,
+       %{
+         models: [%{name: "qwen-test", size: 42}],
+         running_models: [%{name: "qwen-test", vram_size: 21}]
+       }}
+    end
   end
 
   defmodule FailedAdapter do
     @behaviour Llamixir.Runtime.Adapter
 
     @impl true
-    def health(_config), do: {:error, :connection_refused}
-
-    @impl true
-    def models(_config), do: {:ok, []}
-
-    @impl true
-    def running_models(_config), do: {:ok, []}
+    def probe(_config), do: {:error, :connection_refused}
   end
 
   defmodule BlockingAdapter do
     @behaviour Llamixir.Runtime.Adapter
 
     @impl true
-    def health(config) do
+    def probe(config) do
       test_pid = Keyword.fetch!(config, :test_pid)
       send(test_pid, {:refresh_started, self()})
 
       receive do
-        :finish_refresh -> :ready
+        :finish_refresh -> {:ok, %{models: [], running_models: []}}
       end
     end
-
-    @impl true
-    def models(_config), do: {:ok, []}
-
-    @impl true
-    def running_models(_config), do: {:ok, []}
   end
 
   test "reports health and discovered models" do

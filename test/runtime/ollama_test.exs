@@ -5,6 +5,8 @@ defmodule Llamixir.Runtime.OllamaTest do
 
   defmodule HealthyHTTP do
     def get(url, _opts) do
+      endpoint = if String.ends_with?(url, "/api/ps"), do: :ps, else: :tags
+      Process.put({__MODULE__, endpoint}, Process.get({__MODULE__, endpoint}, 0) + 1)
       body = if String.ends_with?(url, "/api/ps"), do: running_body(), else: models_body()
       {:ok, 200, [], body}
     end
@@ -25,25 +27,21 @@ defmodule Llamixir.Runtime.OllamaTest do
     def get(_url, _opts), do: {:error, {:failed_connect, []}}
   end
 
-  test "reports a healthy Ollama endpoint" do
-    assert Ollama.health(http_client: HealthyHTTP) == :ready
-  end
+  test "probes health and normalizes model inventories" do
+    assert {:ok, %{models: [model], running_models: [running]}} =
+             Ollama.probe(http_client: HealthyHTTP)
 
-  test "normalizes discovered models" do
-    assert {:ok, [model]} = Ollama.models(http_client: HealthyHTTP)
     assert model.name == "qwen2.5:0.5b"
     assert model.size == 397_000_000
     assert model.metadata["family"] == "qwen2"
+    assert running.name == "qwen2.5:0.5b"
+    assert running.vram_size == 250_000_000
+    assert running.expires_at == "2026-07-21T01:00:00Z"
+    assert Process.get({HealthyHTTP, :tags}) == 1
+    assert Process.get({HealthyHTTP, :ps}) == 1
   end
 
   test "reports connection failures as unavailable" do
-    assert Ollama.health(http_client: OfflineHTTP) == :unavailable
-  end
-
-  test "normalizes loaded models and VRAM usage" do
-    assert {:ok, [model]} = Ollama.running_models(http_client: HealthyHTTP)
-    assert model.name == "qwen2.5:0.5b"
-    assert model.vram_size == 250_000_000
-    assert model.expires_at == "2026-07-21T01:00:00Z"
+    assert Ollama.probe(http_client: OfflineHTTP) == :unavailable
   end
 end

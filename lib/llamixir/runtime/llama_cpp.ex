@@ -6,41 +6,25 @@ defmodule Llamixir.Runtime.LlamaCpp do
   @default_url "http://127.0.0.1:8080"
 
   @impl true
-  def health(config) do
-    case request(config, "/health") do
-      {:ok, _body} -> :ready
-      {:error, {:http_status, status}} -> {:error, {:http_status, status}}
-      {:error, reason} when reason in [:econnrefused, :timeout] -> :unavailable
-      {:error, {:failed_connect, _details}} -> :unavailable
-      {:error, reason} -> {:error, reason}
-    end
-  end
-
-  @impl true
-  def models(config) do
+  def probe(config) do
     with {:ok, body} <- request(config, "/v1/models"),
          {:ok, %{"data" => models}} when is_list(models) <- JSON.decode(body) do
-      {:ok, Enum.map(models, &normalize_model/1)}
+      models = Enum.map(models, &normalize_model/1)
+      {:ok, %{models: models, running_models: Enum.map(models, &as_running_model/1)}}
     else
       {:ok, _unexpected} -> {:error, :invalid_response}
-      {:error, reason} -> {:error, reason}
+      {:error, reason} -> classify_error(reason)
     end
   end
 
-  @impl true
-  def running_models(config) do
-    with {:ok, models} <- models(config) do
-      {:ok,
-       Enum.map(models, fn model ->
-         %{
-           name: model.name,
-           size: model.size,
-           vram_size: 0,
-           expires_at: nil,
-           metadata: model.metadata
-         }
-       end)}
-    end
+  defp as_running_model(model) do
+    %{
+      name: model.name,
+      size: model.size,
+      vram_size: 0,
+      expires_at: nil,
+      metadata: model.metadata
+    }
   end
 
   defp request(config, path) do
@@ -54,6 +38,10 @@ defmodule Llamixir.Runtime.LlamaCpp do
       {:error, reason} -> {:error, reason}
     end
   end
+
+  defp classify_error(reason) when reason in [:econnrefused, :timeout], do: :unavailable
+  defp classify_error({:failed_connect, _details}), do: :unavailable
+  defp classify_error(reason), do: {:error, reason}
 
   defp normalize_model(model) do
     metadata = Map.get(model, "meta") || %{}

@@ -7,7 +7,7 @@ defmodule Llamixir.Runtime.Adapter do
   """
 
   @type config :: keyword()
-  @type health :: :ready | :unavailable | {:error, term()}
+  @type health :: :ready | :unavailable | :error
   @type model :: %{
           required(:name) => String.t(),
           optional(:size) => non_neg_integer(),
@@ -22,7 +22,8 @@ defmodule Llamixir.Runtime.Adapter do
           optional(:metadata) => map()
         }
 
-  @callback health(config()) :: health()
-  @callback models(config()) :: {:ok, [model()]} | {:error, term()}
-  @callback running_models(config()) :: {:ok, [running_model()]} | {:error, term()}
+  @type inventory :: %{models: [model()], running_models: [running_model()]}
+  @type probe_result :: {:ok, inventory()} | :unavailable | {:error, term()}
+
+  @callback probe(config()) :: probe_result()
 end

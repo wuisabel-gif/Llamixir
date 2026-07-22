@@ -20,19 +20,17 @@ defmodule Llamixir.Runtime.LlamaCppTest do
     def get(_url, _opts), do: {:error, :econnrefused}
   end
 
-  test "reports server health" do
-    assert LlamaCpp.health(http_client: HealthyHTTP) == :ready
-    assert LlamaCpp.health(http_client: OfflineHTTP) == :unavailable
-  end
+  test "probes health and normalizes the loaded llama.cpp model" do
+    assert {:ok, %{models: [model], running_models: [running]}} =
+             LlamaCpp.probe(http_client: HealthyHTTP)
 
-  test "normalizes the loaded llama.cpp model" do
-    assert {:ok, [model]} = LlamaCpp.models(http_client: HealthyHTTP)
     assert model.name == "qwen.gguf"
     assert model.size == 4_700_000_000
     assert model.metadata["owned_by"] == "llamacpp"
+    assert running.name == "qwen.gguf"
   end
 
-  test "exposes the loaded model as running" do
-    assert {:ok, [%{name: "qwen.gguf"}]} = LlamaCpp.running_models(http_client: HealthyHTTP)
+  test "reports connection failures as unavailable" do
+    assert LlamaCpp.probe(http_client: OfflineHTTP) == :unavailable
   end
 end
