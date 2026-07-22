@@ -37,7 +37,7 @@ defmodule Llamixir.Runtime.WorkerTest do
 
   test "reports health and discovered models" do
     id = unique_id(:healthy)
-    assert {:ok, _pid} = start_runtime(id, HealthyAdapter)
+    assert {:ok, pid} = start_runtime(id, HealthyAdapter)
 
     assert %{
              id: ^id,
@@ -45,7 +45,7 @@ defmodule Llamixir.Runtime.WorkerTest do
              models: [%{name: "qwen-test", size: 42}],
              running_models: [%{name: "qwen-test", vram_size: 21}]
            } =
-             Llamixir.Runtime.Worker.snapshot(Llamixir.Runtime.Worker.via(id))
+             Llamixir.Runtime.Worker.refresh(pid)
   end
 
   test "keeps adapter failures observable without crashing" do
@@ -53,7 +53,7 @@ defmodule Llamixir.Runtime.WorkerTest do
     assert {:ok, pid} = start_runtime(id, FailedAdapter)
 
     assert %{status: :error, error: :connection_refused} =
-             Llamixir.Runtime.Worker.snapshot(pid)
+             Llamixir.Runtime.Worker.refresh(pid)
 
     assert Process.alive?(pid)
   end

@@ -51,6 +51,9 @@ Configure llama.cpp independently:
 LLAMIXIR_LLAMA_CPP_URL=http://192.168.1.21:8080 ./llamixir models llamacpp
 ```
 
+Version 0.1 accepts `http://` runtime endpoints only. It rejects HTTPS URLs
+instead of connecting without certificate verification.
+
 `llamixir daemon` stays in the foreground, refreshes runtime state every five
 seconds, and lets OTP restart failed monitoring workers. One-shot commands use
 the daemon's local control socket when it is available and fall back to direct
@@ -89,6 +92,8 @@ trade-offs, and planned delivery order.
 mix format --check-formatted
 mix test
 ```
+
+CI runs both commands for every push and pull request.
 
 ## License
 
