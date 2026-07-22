@@ -1,5 +1,9 @@
 # Llamixir
 
+<p align="center">
+  <img src="logo.png" alt="Llamixir — Keep AI Running" width="480">
+</p>
+
 Llamixir is an Elixir/OTP operations layer for local AI runtimes. It discovers
 models, monitors runtime health, and keeps backend failures observable through
 supervised workers.
