@@ -21,6 +21,23 @@ defmodule Llamixir.Runtime.WorkerTest do
     def models(_config), do: {:ok, []}
   end
 
+  defmodule BlockingAdapter do
+    @behaviour Llamixir.Runtime.Adapter
+
+    @impl true
+    def health(config) do
+      test_pid = Keyword.fetch!(config, :test_pid)
+      send(test_pid, {:refresh_started, self()})
+
+      receive do
+        :finish_refresh -> :ready
+      end
+    end
+
+    @impl true
+    def models(_config), do: {:ok, []}
+  end
+
   test "reports health and discovered models" do
     id = unique_id(:healthy)
     assert {:ok, _pid} = start_runtime(id, HealthyAdapter)
@@ -37,6 +54,34 @@ defmodule Llamixir.Runtime.WorkerTest do
              Llamixir.Runtime.Worker.snapshot(pid)
 
     assert Process.alive?(pid)
+  end
+
+  test "starts without waiting for the first network refresh" do
+    id = unique_id(:nonblocking)
+
+    assert {:ok, pid} =
+             start_supervised(
+               {Llamixir.Runtime.Worker,
+                id: id, adapter: BlockingAdapter, config: [test_pid: self()]}
+             )
+
+    assert_receive {:refresh_started, ^pid}
+    assert Process.alive?(pid)
+    send(pid, :finish_refresh)
+    assert %{status: :ready} = Llamixir.Runtime.Worker.snapshot(pid)
+  end
+
+  test "manual refresh replaces the pending refresh timer" do
+    id = unique_id(:timer)
+    assert {:ok, pid} = start_runtime(id, HealthyAdapter)
+    %{timer: {original_timer, _token}} = :sys.get_state(pid)
+
+    assert %{status: :ready} = Llamixir.Runtime.Worker.refresh(pid)
+    %{timer: {replacement_timer, _token}} = :sys.get_state(pid)
+
+    refute original_timer == replacement_timer
+    assert Process.read_timer(original_timer) == false
+    assert is_integer(Process.read_timer(replacement_timer))
   end
 
   test "lists supervised runtime snapshots" do

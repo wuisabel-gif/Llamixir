@@ -16,7 +16,7 @@ defmodule Llamixir.Runtime.Worker do
           id: atom(),
           adapter: module(),
           config: keyword(),
-          timer: reference() | nil,
+          timer: {reference(), reference()} | nil,
           status: :starting | Llamixir.Runtime.Adapter.health(),
           models: [Llamixir.Runtime.Adapter.model()],
           error: term() | nil
@@ -40,21 +40,28 @@ defmodule Llamixir.Runtime.Worker do
       config: Keyword.get(opts, :config, [])
     }
 
-    {:ok, refresh_state(state) |> schedule_refresh()}
+    {:ok, state, {:continue, :refresh}}
+  end
+
+  @impl true
+  def handle_continue(:refresh, state) do
+    {:noreply, refresh_state(state) |> schedule_refresh()}
   end
 
   @impl true
   def handle_call(:snapshot, _from, state), do: {:reply, public_snapshot(state), state}
 
   def handle_call(:refresh, _from, state) do
-    refreshed = refresh_state(state)
+    refreshed = state |> cancel_refresh() |> refresh_state() |> schedule_refresh()
     {:reply, public_snapshot(refreshed), refreshed}
   end
 
   @impl true
-  def handle_info(:refresh, state) do
+  def handle_info({:refresh, token}, %{timer: {_timer, token}} = state) do
     {:noreply, refresh_state(state) |> schedule_refresh()}
   end
+
+  def handle_info({:refresh, _stale_token}, state), do: {:noreply, state}
 
   defp refresh_state(%{adapter: adapter, config: config} = state) do
     case adapter.health(config) do
@@ -62,8 +69,6 @@ defmodule Llamixir.Runtime.Worker do
       :unavailable -> %{state | status: :unavailable, models: [], error: nil}
       {:error, reason} -> %{state | status: :error, models: [], error: reason}
     end
-  rescue
-    exception -> %{state | status: :error, models: [], error: Exception.message(exception)}
   end
 
   defp refresh_models(%{adapter: adapter, config: config} = state) do
@@ -75,9 +80,17 @@ defmodule Llamixir.Runtime.Worker do
 
   defp schedule_refresh(state) do
     interval = Keyword.get(state.config, :refresh_interval, @default_refresh_interval)
-    timer = Process.send_after(self(), :refresh, interval)
-    %{state | timer: timer}
+    token = make_ref()
+    timer = Process.send_after(self(), {:refresh, token}, interval)
+    %{state | timer: {timer, token}}
   end
+
+  defp cancel_refresh(%{timer: {timer, _token}} = state) do
+    Process.cancel_timer(timer, async: false, info: false)
+    %{state | timer: nil}
+  end
+
+  defp cancel_refresh(state), do: state
 
   defp public_snapshot(state) do
     Map.take(state, [:id, :status, :models, :error])
