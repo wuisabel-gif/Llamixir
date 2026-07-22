@@ -4,9 +4,8 @@ Llamixir is an Elixir/OTP operations layer for local AI runtimes. It discovers
 models, monitors runtime health, and keeps backend failures observable through
 supervised workers.
 
-This is an independent project inspired by terminal-first tooling's immediately useful model
-inventory and terminal-first workflow. Llamixir's distinct purpose is runtime
-supervision: each inference backend becomes an isolated worker that can be
+Llamixir combines an immediately useful model inventory with resilient runtime
+supervision. Each inference backend becomes an isolated worker that can be
 monitored, restarted, queued, and eventually routed through one endpoint.
 
 ## Current capabilities
