@@ -10,7 +10,16 @@ defmodule Llamixir.Runtime.Worker do
 
   @default_refresh_interval 5_000
 
-  defstruct [:id, :adapter, :config, :timer, status: :starting, models: [], error: nil]
+  defstruct [
+    :id,
+    :adapter,
+    :config,
+    :timer,
+    status: :starting,
+    models: [],
+    running_models: [],
+    error: nil
+  ]
 
   @type state :: %__MODULE__{
           id: atom(),
@@ -19,6 +28,7 @@ defmodule Llamixir.Runtime.Worker do
           timer: {reference(), reference()} | nil,
           status: :starting | Llamixir.Runtime.Adapter.health(),
           models: [Llamixir.Runtime.Adapter.model()],
+          running_models: [Llamixir.Runtime.Adapter.running_model()],
           error: term() | nil
         }
 
@@ -65,18 +75,22 @@ defmodule Llamixir.Runtime.Worker do
 
   defp refresh_state(%{adapter: adapter, config: config} = state) do
     case adapter.health(config) do
-      :ready -> refresh_models(%{state | status: :ready, error: nil})
-      :unavailable -> %{state | status: :unavailable, models: [], error: nil}
-      {:error, reason} -> %{state | status: :error, models: [], error: reason}
+      :ready -> refresh_inventory(%{state | status: :ready, error: nil})
+      :unavailable -> clear_inventory(%{state | status: :unavailable, error: nil})
+      {:error, reason} -> clear_inventory(%{state | status: :error, error: reason})
     end
   end
 
-  defp refresh_models(%{adapter: adapter, config: config} = state) do
-    case adapter.models(config) do
-      {:ok, models} -> %{state | models: models}
-      {:error, reason} -> %{state | status: :error, models: [], error: reason}
+  defp refresh_inventory(%{adapter: adapter, config: config} = state) do
+    with {:ok, models} <- adapter.models(config),
+         {:ok, running_models} <- adapter.running_models(config) do
+      %{state | models: models, running_models: running_models}
+    else
+      {:error, reason} -> clear_inventory(%{state | status: :error, error: reason})
     end
   end
+
+  defp clear_inventory(state), do: %{state | models: [], running_models: []}
 
   defp schedule_refresh(state) do
     interval = Keyword.get(state.config, :refresh_interval, @default_refresh_interval)
@@ -93,6 +107,6 @@ defmodule Llamixir.Runtime.Worker do
   defp cancel_refresh(state), do: state
 
   defp public_snapshot(state) do
-    Map.take(state, [:id, :status, :models, :error])
+    Map.take(state, [:id, :status, :models, :running_models, :error])
   end
 end

@@ -9,6 +9,9 @@ defmodule Llamixir.Runtime.WorkerTest do
 
     @impl true
     def models(_config), do: {:ok, [%{name: "qwen-test", size: 42}]}
+
+    @impl true
+    def running_models(_config), do: {:ok, [%{name: "qwen-test", vram_size: 21}]}
   end
 
   defmodule FailedAdapter do
@@ -19,6 +22,9 @@ defmodule Llamixir.Runtime.WorkerTest do
 
     @impl true
     def models(_config), do: {:ok, []}
+
+    @impl true
+    def running_models(_config), do: {:ok, []}
   end
 
   defmodule BlockingAdapter do
@@ -36,13 +42,21 @@ defmodule Llamixir.Runtime.WorkerTest do
 
     @impl true
     def models(_config), do: {:ok, []}
+
+    @impl true
+    def running_models(_config), do: {:ok, []}
   end
 
   test "reports health and discovered models" do
     id = unique_id(:healthy)
     assert {:ok, _pid} = start_runtime(id, HealthyAdapter)
 
-    assert %{id: ^id, status: :ready, models: [%{name: "qwen-test", size: 42}]} =
+    assert %{
+             id: ^id,
+             status: :ready,
+             models: [%{name: "qwen-test", size: 42}],
+             running_models: [%{name: "qwen-test", vram_size: 21}]
+           } =
              Llamixir.Runtime.Worker.snapshot(Llamixir.Runtime.Worker.via(id))
   end
 

@@ -14,7 +14,15 @@ defmodule Llamixir.Runtime.Adapter do
           optional(:modified_at) => String.t(),
           optional(:metadata) => map()
         }
+  @type running_model :: %{
+          required(:name) => String.t(),
+          optional(:size) => non_neg_integer(),
+          optional(:vram_size) => non_neg_integer(),
+          optional(:expires_at) => String.t(),
+          optional(:metadata) => map()
+        }
 
   @callback health(config()) :: health()
   @callback models(config()) :: {:ok, [model()]} | {:error, term()}
+  @callback running_models(config()) :: {:ok, [running_model()]} | {:error, term()}
 end
