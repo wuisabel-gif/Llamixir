@@ -22,10 +22,10 @@ The CLI owns human interaction:
 - rendering tables and diagnostics;
 - starting a foreground daemon for development.
 
-Today, one-shot commands start short-lived workers to query current state, while
-`llamixir daemon` exercises continuous monitoring in the foreground. The next
-milestone adds a local control socket so the CLI can query an existing daemon
-instead of starting its own workers.
+The daemon exposes a versioned JSON protocol over a Unix-domain socket.
+One-shot commands query that socket when it is available and start short-lived
+workers only as a fallback. This keeps scripts convenient while ensuring that
+interactive operations share the daemon's authoritative state.
 
 ## Trade-offs
 
@@ -59,10 +59,11 @@ support observation and restart through an external process manager.
 
 ### 0.2 — Local control
 
-- Unix-domain control socket with a versioned JSON protocol.
-- CLI detection of a running daemon with one-shot fallback.
-- Runtime state, health, and recovery-event queries.
-- Graceful daemon shutdown and stale-socket recovery.
+- Unix-domain control socket with a versioned JSON protocol. Complete.
+- CLI detection of a running daemon with one-shot fallback. Complete.
+- Runtime state and health queries. Complete.
+- Graceful daemon shutdown and stale-socket recovery. Complete.
+- Recovery-event queries and bounded event history.
 
 ### 0.3 — Lifecycle
 

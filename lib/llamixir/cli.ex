@@ -5,6 +5,12 @@ defmodule Llamixir.CLI do
 
   @version Mix.Project.config()[:version]
 
+  def main(["daemon"]) do
+    Application.put_env(:llamixir, :control_server, true)
+    {:ok, _started} = Application.ensure_all_started(:llamixir)
+    daemon()
+  end
+
   def main(args) do
     {:ok, _started} = Application.ensure_all_started(:llamixir)
 
@@ -23,9 +29,6 @@ defmodule Llamixir.CLI do
 
       ["running"] ->
         running()
-
-      ["daemon"] ->
-        daemon()
 
       ["version"] ->
         IO.puts("llamixir #{@version}")
@@ -84,8 +87,10 @@ defmodule Llamixir.CLI do
   end
 
   defp daemon do
-    snapshots = runtime_snapshots()
+    ensure_runtimes()
+    snapshots = local_runtime_snapshots()
     IO.puts("Llamixir daemon started with #{length(snapshots)} supervised runtimes.")
+    IO.puts("Control socket: #{Llamixir.Control.Server.socket_path()}")
     IO.puts(render_runtimes(snapshots))
     Process.sleep(:infinity)
   end
@@ -146,6 +151,13 @@ defmodule Llamixir.CLI do
   end
 
   defp runtime_snapshots do
+    case Llamixir.Control.Client.snapshots() do
+      {:ok, snapshots} when snapshots != [] -> snapshots
+      _unavailable -> local_runtime_snapshots()
+    end
+  end
+
+  defp local_runtime_snapshots do
     ensure_runtimes()
     Enum.map(runtime_specs(), fn {id, _adapter, _config} -> Worker.snapshot(Worker.via(id)) end)
   end

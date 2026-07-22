@@ -19,6 +19,7 @@ monitored, restarted, queued, and eventually routed through one endpoint.
 - Failure state that remains inspectable instead of crashing the application.
 - Automatic worker recovery when a monitored runtime process crashes.
 - A foreground daemon mode that exercises continuous supervision and polling.
+- A versioned local JSON control socket used automatically by CLI commands.
 
 ## Try it
 
@@ -46,10 +47,10 @@ Configure llama.cpp independently:
 LLAMIXIR_LLAMA_CPP_URL=http://192.168.1.21:8080 ./llamixir models llamacpp
 ```
 
-One-shot commands discover current state and exit. `llamixir daemon` stays in
-the foreground, refreshes runtime state every five seconds, and lets OTP
-restart failed monitoring workers. A local control socket will make one-shot
-commands thin clients of that daemon in the next milestone.
+`llamixir daemon` stays in the foreground, refreshes runtime state every five
+seconds, and lets OTP restart failed monitoring workers. One-shot commands use
+the daemon's local control socket when it is available and fall back to direct
+discovery when it is not.
 
 ## Architecture
 
@@ -66,9 +67,9 @@ Ollama   llama.cpp
 ```
 
 The adapter boundary covers health, installed models, and loaded models. The
-next iterations will add a local control socket, lifecycle operations, live
-metrics, request queues, and health-aware routing without moving
-backend-specific behavior into the supervision core.
+next iterations will add lifecycle operations, recovery events, live metrics,
+request queues, and health-aware routing without moving backend-specific
+behavior into the supervision core.
 
 See [Architecture and roadmap](docs/architecture.md) for the daemon decision,
 trade-offs, and planned delivery order.

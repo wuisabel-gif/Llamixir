@@ -7,14 +7,23 @@ defmodule Llamixir.Application do
 
   @impl true
   def start(_type, _args) do
-    children = [
-      {Registry, keys: :unique, name: Llamixir.Runtime.Registry},
-      {Llamixir.Runtime.Supervisor, []}
-    ]
+    children =
+      [
+        {Registry, keys: :unique, name: Llamixir.Runtime.Registry},
+        {Llamixir.Runtime.Supervisor, []}
+      ] ++ control_children()
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Llamixir.Supervisor]
     Supervisor.start_link(children, opts)
+  end
+
+  defp control_children do
+    if Application.get_env(:llamixir, :control_server, false) do
+      [{Llamixir.Control.Server, []}]
+    else
+      []
+    end
   end
 end
