@@ -17,6 +17,7 @@ monitored, restarted, queued, and eventually routed through one endpoint.
 - Normalized model metadata including size, family, and modification date.
 - A small dependency-free CLI and aligned model inventory.
 - Failure state that remains inspectable instead of crashing the application.
+- Automatic worker recovery when a monitored runtime process crashes.
 
 ## Try it
 
@@ -67,4 +68,3 @@ mix test
 ## License
 
 MIT © 2026 Isabella Wu
-

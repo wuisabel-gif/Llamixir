@@ -25,6 +25,7 @@ defmodule Llamixir.Runtime.Supervisor do
   def snapshots do
     __MODULE__
     |> DynamicSupervisor.which_children()
+    |> Enum.filter(&is_pid(elem(&1, 1)))
     |> Enum.map(fn {_id, pid, _type, _modules} -> Llamixir.Runtime.Worker.snapshot(pid) end)
     |> Enum.sort_by(& &1.id)
   end
