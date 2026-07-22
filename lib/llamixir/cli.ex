@@ -50,12 +50,12 @@ defmodule Llamixir.CLI do
   end
 
   defp status do
-    runtime_snapshots()
-    |> Enum.each(fn snapshot ->
-      IO.puts(
-        "#{snapshot.id}\t#{snapshot.status}\t#{length(snapshot.models)} models\t#{length(snapshot.running_models)} running"
-      )
-    end)
+    snapshots = runtime_snapshots()
+    IO.puts(render_runtimes(snapshots))
+
+    if status_exit_code(snapshots) != 0 do
+      System.halt(1)
+    end
   end
 
   defp models(runtime) do
@@ -143,11 +143,17 @@ defmodule Llamixir.CLI do
           to_string(snapshot.id),
           to_string(snapshot.status),
           to_string(length(snapshot.models)),
-          to_string(length(snapshot.running_models))
+          to_string(length(snapshot.running_models)),
+          format_error(Map.get(snapshot, :error))
         ]
       end)
 
-    render_table(["RUNTIME", "STATUS", "MODELS", "RUNNING"], rows)
+    render_table(["RUNTIME", "STATUS", "MODELS", "RUNNING", "ERROR"], rows)
+  end
+
+  @doc false
+  def status_exit_code(snapshots) do
+    if snapshots != [] and Enum.all?(snapshots, &(&1.status == :ready)), do: 0, else: 1
   end
 
   defp runtime_snapshots do
@@ -201,6 +207,11 @@ defmodule Llamixir.CLI do
 
   defp format_unit(value, unit), do: :erlang.float_to_binary(value, decimals: 1) <> " " <> unit
 
+  defp format_error(nil), do: "—"
+  defp format_error({:http_status, status}), do: "HTTP #{status}"
+  defp format_error(reason) when is_binary(reason), do: reason
+  defp format_error(reason), do: inspect(reason)
+
   defp render_table(headers, rows) do
     widths =
       [headers | rows]
@@ -220,7 +231,7 @@ defmodule Llamixir.CLI do
 
     Usage:
       llamixir             Show the runtime dashboard
-      llamixir status      Show runtime health
+      llamixir status      Show runtime health (exits nonzero unless all are ready)
       llamixir models      List models across healthy runtimes
       llamixir models NAME List models from one runtime
       llamixir running     Show loaded models and memory usage

@@ -44,13 +44,28 @@ defmodule Llamixir.CLITest do
 
   test "renders runtime health summaries" do
     snapshots = [
-      %{id: :ollama, status: :ready, models: [%{}], running_models: [%{}]},
-      %{id: :llamacpp, status: :unavailable, models: [], running_models: []}
+      %{id: :ollama, status: :ready, models: [%{}], running_models: [%{}], error: nil},
+      %{
+        id: :llamacpp,
+        status: :error,
+        models: [],
+        running_models: [],
+        error: {:http_status, 404}
+      }
     ]
 
     table = Llamixir.CLI.render_runtimes(snapshots)
     assert table =~ "ollama"
     assert table =~ "llamacpp"
-    assert table =~ "unavailable"
+    assert table =~ "HTTP 404"
+  end
+
+  test "status succeeds only when every runtime is ready" do
+    ready = %{id: :ollama, status: :ready, models: [], running_models: [], error: nil}
+    failed = %{ready | id: :llamacpp, status: :unavailable}
+
+    assert Llamixir.CLI.status_exit_code([ready]) == 0
+    assert Llamixir.CLI.status_exit_code([ready, failed]) == 1
+    assert Llamixir.CLI.status_exit_code([]) == 1
   end
 end

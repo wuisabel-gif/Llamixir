@@ -118,6 +118,7 @@ defmodule Llamixir.Control.Server do
     Map.new(value, fn {key, nested} -> {to_string(key), normalize(nested)} end)
   end
 
+  defp normalize(value) when is_tuple(value), do: inspect(value)
   defp normalize(value) when is_atom(value) and not is_nil(value), do: to_string(value)
   defp normalize(value), do: value
 end

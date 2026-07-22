@@ -56,6 +56,10 @@ seconds, and lets OTP restart failed monitoring workers. One-shot commands use
 the daemon's local control socket when it is available and fall back to direct
 discovery when it is not.
 
+`llamixir status` includes the stored failure reason for each runtime and exits
+with status `1` unless every configured runtime is ready, making it suitable
+for scripts and health checks.
+
 ## Architecture
 
 ```text
@@ -70,7 +74,8 @@ Runtime Workers
 Ollama   llama.cpp
 ```
 
-The adapter boundary covers health, installed models, and loaded models. The
+Each adapter performs one probe that returns health, installed models, and
+loaded models together. The
 next iterations will add lifecycle operations, recovery events, live metrics,
 request queues, and health-aware routing without moving backend-specific
 behavior into the supervision core.
