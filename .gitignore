@@ -9,6 +9,7 @@
 
 # Where third-party dependencies like ExDoc output generated docs.
 /doc/
+/llamixir
 
 # Temporary files, for example, from tests.
 /tmp/
@@ -21,4 +22,3 @@ erl_crash.dump
 
 # Ignore package tarball (built via "mix hex.build").
 llamixir-*.tar
-
